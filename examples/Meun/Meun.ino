@@ -14,7 +14,7 @@ String countryCode = "**";
 // https://www.lilygo.cc/products/mini-e-paper-core , esp32picod4
 // #define LILYGO_MINI_EPAPER_ESP32
 // esp32s3-fn4r2
-// #define LILYGO_MINI_EPAPER_ESP32S3
+#define LILYGO_MINI_EPAPER_ESP32S3
 
 #if !defined(LILYGO_MINI_EPAPER_ESP32S3)  && !defined(LILYGO_MINI_EPAPER_ESP32)
 // 请在草图上方选择对应的目标板子名称,将它取消注释.
@@ -22,7 +22,7 @@ String countryCode = "**";
 #endif
 
 
-#define TIME_ZONE  8
+#define TIME_ZONE  -4
 #define TIME_WEATHER_SYNC //Reset to enable time weather calibration. You can comment it out
 
 
@@ -52,14 +52,14 @@ String countryCode = "**";
 #include "bma423.h"
 #include <QMC5883LCompass.h>
 
-const char *ssid = "REPLACE_WITH_YOUR_SSID";
-const char *password = "REPLACE_WITH_YOUR_PASSWORD";
+const char *ssid = "StephensNew";
+const char *password = "17StephensModel65!";
 
 // Your Domain name with URL path or IP address with path
-String openWeatherMapApiKey = "REPLACE_WITH_YOUR_OPEN_WEATHER_MAP_API_KEY";
+String openWeatherMapApiKey = "21281347cefa27ab21067ecba8b7fe85";
 // Replace with your country code and city
-String city = "Shenzhen";
-String countryCode = "CN";
+String city = "Alpharetta";
+String countryCode = "US";
 
 String jsonBuffer;
 uint32_t    last = 0;
@@ -1299,21 +1299,21 @@ void handleEvent(AceButton *button, uint8_t eventType, uint8_t buttonState)
 
     case AceButton::kEventReleased:
         if (button->getPin() == BUTTON_1) {
-            // Serial.println(F("BUTTON_1 "));
+            Serial.println(F("BUTTON_1 "));
             button1_flag = 1;
         }
         if (button->getPin() == BUTTON_2) {
-            // Serial.println(F("BUTTON_2 "));
+            Serial.println(F("BUTTON_2 "));
             button2_flag = 1;
         }
         if (button->getPin() == BUTTON_3) {
-            //   Serial.println(F("BUTTON_3 "));
+            Serial.println(F("BUTTON_3 "));
             button3_flag = 1;
         }
         break;
     case AceButton::kEventLongPressed:
         if (button->getPin() == BUTTON_3) {
-            //  Serial.println(F("BUTTON_1 EventLongPressed!"));
+            Serial.println(F("BUTTON_1 EventLongPressed!"));
             button3_long_flag = 1;
         }
         break;

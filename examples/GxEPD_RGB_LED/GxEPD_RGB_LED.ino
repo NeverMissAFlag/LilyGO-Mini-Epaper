@@ -2,7 +2,7 @@
 // https://www.lilygo.cc/products/mini-e-paper-core , esp32picod4
 // #define LILYGO_MINI_EPAPER_ESP32
 // esp32s3-fn4r2
-// #define LILYGO_MINI_EPAPER_ESP32S3
+#define LILYGO_MINI_EPAPER_ESP32S3
 
 #if !defined(LILYGO_MINI_EPAPER_ESP32S3)  && !defined(LILYGO_MINI_EPAPER_ESP32)
 // 请在草图上方选择对应的目标板子名称,将它取消注释.
