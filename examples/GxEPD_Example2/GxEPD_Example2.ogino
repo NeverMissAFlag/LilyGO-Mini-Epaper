@@ -26,27 +26,10 @@ using namespace         ace_button;
 #include <Fonts/FreeMonoBold12pt7b.h>
 #include <Fonts/FreeMonoBold18pt7b.h>
 #include <Fonts/FreeMonoBold24pt7b.h>
-#include <Fonts/FreeMonoBoldOblique9pt7b.h>
-#include <Fonts/FreeMonoBoldOblique12pt7b.h>
-#include <Fonts/FreeMonoBoldOblique18pt7b.h>
-#include <Fonts/FreeSans9pt7b.h>
-#include <Fonts/FreeSansBold9pt7b.h>
-#include <Fonts/FreeSansBold12pt7b.h>
-#include <Fonts/FreeSansBoldOblique9pt7b.h>
-#include <Fonts/FreeSansBoldOblique12pt7b.h>
-#include <Fonts/FreeSansOblique9pt7b.h>
-#include <Fonts/FreeSerif9pt7b.h>
-#include <Fonts/FreeSerifBold9pt7b.h>
-#include <Fonts/FreeSerifBold12pt7b.h>
-#include <Fonts/FreeSerifBoldItalic9pt7b.h>
-#include <Fonts/FreeSerifBoldItalic12pt7b.h>
-#include <Fonts/FreeMono9pt7b.h>
-#include <Fonts/FreeMono12pt7b.h>
-#include <Fonts/FreeMonoOblique9pt7b.h>
-#include <Fonts/FreeMonoOblique12pt7b.h>
 #include <GxIO/GxIO_SPI/GxIO_SPI.h>
 #include <GxIO/GxIO.h>
 #include <WiFi.h>
+
 
 #include "font_prazo_7.h"
 #include "font_prazo_9.h"
@@ -61,45 +44,29 @@ GxEPD_Class display(io, EPD_RSET, EPD_BUSY);
 
 
 AceButton btn1(BUTTON_1, HIGH);
+#ifdef BUTTON_2
 AceButton btn2(BUTTON_2, HIGH);
+#endif
+#ifdef BUTTON_3
 AceButton btn3((uint8_t) BUTTON_3, HIGH);
+#endif
 
 #if defined(_HAS_SDCARD_) && !defined(_USE_SHARED_SPI_BUS_)
 SPIClass SDSPI(HSPI);
 #endif
 
+#if defined(_GxGDEW0213Z16_H_) || defined(_GxGDEW029Z10_H_) || defined(_GxGDEW027C44_H_) ||defined(_GxGDEW0154Z17_H_) || defined(_GxGDEW0154Z04_H_) || defined(_GxDEPG0290R_H_)
+#define _HAS_COLOR_
+#endif
+
+
 bool rlst = false;
-typedef struct {
-		uint8_t channel;
-		float frequency;
-		uint8_t mode;
-		uint8_t power;
-		uint8_t squelch;
-		uint8_t volume;
-		uint8_t battery;
-		uint8_t channelDigit;
-} hybridStatusType;
-
-// modes
-#define STARTUP 			0
-#define NORMAL_MODE		1
-#define CH_SET				2
-#define MENU					3
-
-hybridStatusType hybridStatus;
-
-void printChannel(const GFXfont *f);
 void showFont(const char name[], const GFXfont *f);
 void drawCornerTest(void);
 void GxepdPage0();
 void GxepdPage1();
 void GxepdPage2();
 void EnterSleep();
-void printStartup();
-void SelButton();
-void UpButton();
-void DownButton();
-void MainScreen();
 
 bool setupSDCard(void)
 {
@@ -112,6 +79,28 @@ bool setupSDCard(void)
     return false;
 }
 
+
+void testSpeaker()
+{
+#if defined(_HAS_SPEAKER_)
+#ifdef _HAS_PWR_CTRL_
+    pinMode(SPK_POWER_EN, OUTPUT);
+    digitalWrite(SPK_POWER_EN, HIGH);
+#endif
+    ledcSetup(LEDC_CHANNEL_0, 1000, 8);
+    ledcAttachPin(SPERKER_PIN, LEDC_CHANNEL_0);
+    int i = 3;
+    while (i--) {
+        ledcWriteTone(LEDC_CHANNEL_0, 1000);
+        delay(200);
+        ledcWriteTone(LEDC_CHANNEL_0, 0);
+    }
+#ifdef _HAS_PWR_CTRL_
+    pinMode(SPK_POWER_EN, INPUT);
+#endif
+    ledcDetachPin(SPERKER_PIN);
+#endif
+}
 
 void testWiFi()
 {
@@ -159,17 +148,24 @@ static void aceButtonHandleEventCb(AceButton *b, uint8_t event, uint8_t state)
 
     switch (b->getPin()) {
     case BUTTON_1:
-//        GxepdPage0();
-				UpButton();
+        GxepdPage0();
+        /*
+        #ifdef LILYGO_MINI_EPAPER_ESP32
+            event == AceButton::kEventLongPressed ? EnterSleep() : GxepdPage0();
+        #else
+            event == AceButton::kEventClicked ? GxepdPage0() : EnterSleep();
+        #endif*/
         break;
+#ifdef BUTTON_2
     case BUTTON_2:
-//        GxepdPage1();
-				DownButton();
+        GxepdPage1();
         break;
+#endif
+#ifdef BUTTON_3
     case BUTTON_3:
-//        GxepdPage2();
-				SelButton();
+        GxepdPage2();
         break;
+#endif
     default:
         break;
     }
@@ -178,14 +174,10 @@ static void aceButtonHandleEventCb(AceButton *b, uint8_t event, uint8_t state)
 void setup()
 {
 
-		hybridStatus.channel = 150;
-		hybridStatus.frequency = 450.0 + (0.0125 * (hybridStatus.channel));
-		hybridStatus.mode = STARTUP;
-
-
     Serial.begin(115200);
     Serial.println();
     Serial.println("setup");
+
 
     /*Turn on power control*/
     pinMode(EPD_POWER_ENABLE, OUTPUT);
@@ -196,37 +188,50 @@ void setup()
     display.init();
     display.setTextColor(GxEPD_BLACK);
 
+
     pinMode(BUTTON_1, INPUT);
     btn1.init(BUTTON_1);
     ButtonConfig *buttonConfig = btn1.getButtonConfig();
     buttonConfig->setEventHandler(aceButtonHandleEventCb);
+#if defined(LILYGO_MINI_EPAPER_ESP32 ) || defined(LILYGO_MINI_EPAPER_ESP32S3)
     buttonConfig->setFeature(ButtonConfig::kFeatureRepeatPress);
+#else
+    buttonConfig->setFeature(ButtonConfig::kFeatureClick);
+#endif
     buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
 
+#ifdef BUTTON_2
     pinMode(BUTTON_2, INPUT);
     btn2.init(BUTTON_2);
     buttonConfig = btn2.getButtonConfig();
     buttonConfig->setEventHandler(aceButtonHandleEventCb);
+#if defined(LILYGO_MINI_EPAPER_ESP32 ) || defined(LILYGO_MINI_EPAPER_ESP32S3)
     buttonConfig->setFeature(ButtonConfig::kFeatureRepeatPress);
+#else
+    buttonConfig->setFeature(ButtonConfig::kFeatureClick);
+#endif
+#endif
+    testSpeaker();
 
     testWiFi();
 
     rlst = setupSDCard();
 
-		printStartup();
-		MainScreen();
-		hybridStatus.mode = NORMAL_MODE;
-
+    GxepdPage0();
 }
 
 void loop()
 {
 
     btn1.check();
+#ifdef BUTTON_2
     btn2.check();
+#endif
+#ifdef BUTTON_3
     btn3.check();
-}
+#endif
 
+}
 void GxepdPage0()
 {
     display.setRotation(0);
@@ -279,35 +284,6 @@ void showFont(const char name[], const GFXfont *f)
     display.update();
     delay(5000);
 }
-
-void printChannel(const GFXfont *f)
-{
-		display.setRotation(1);
-    display.fillScreen(GxEPD_WHITE);
-    display.setTextColor(GxEPD_BLACK);
-    display.setFont(f);
-    display.setCursor(10, 10);
-    display.println("CH 001");
-    display.println("454.0125");
-    display.update();
-    delay(5000);
-}
-
-void printStartup()
-{
-		display.setRotation(1);
-		display.fillScreen(GxEPD_BLACK);
-		display.setTextColor(GxEPD_WHITE);
-		display.setFont(&FreeSansBold9pt7b);
-		display.setCursor(12, 35);
-		display.print("RACEceiver");
-		display.setCursor(30, 55);
-		display.setFont(&FreeSansBoldOblique9pt7b);
-		display.print("Hybrid");
-		display.update();
-		delay(3000);
-}
-
 void EnterSleep()
 {
     Serial.println("EnterSleep");
@@ -359,11 +335,16 @@ void GxepdPage1()
     //EnterSleep();
 }
 
+
+
 void GxepdPage2()
 {
-	char str[20];
-
     Serial.println("GxepdPage2");
+    int16_t x1, y1;
+    uint16_t w, h;
+    uint16_t box_w = display.width() - 20, box_h = display.height() / 2 + 20;
+    uint16_t box_x = 10, box_y = 10;
+    String str = "LilyGo";
     display.setRotation(1);
     display.fillScreen(GxEPD_WHITE);
 
@@ -380,18 +361,12 @@ void GxepdPage2()
     offset_y4 = 25;
 
 #elif defined(_GxGDGDEW0102T4_H_)
-/*
     const GFXfont *font1 = &prazo_Regular_27pt7b;
     const GFXfont *font2 = &prazo_Regular_29pt7b;
     offset_y1 = 15;
     offset_y2 = 30;
     offset_y3 = 45;
     offset_y4 = 20;
-*/
-    const GFXfont *font1 = &FreeMonoBold12pt7b;
-    offset_y1 = 25;
-    offset_y2 = 50;
-
 #elif defined(_GxDEPG0290B_H_) || defined(_GxGDEM0213B74_H_) || defined(_GxDEPG0290R_H_) || defined(_GxGDEW029Z10_H_) ||defined(_GxGDEH029A1_H_) || defined(_GxDEPG0213BN_H_) || defined(_GxGDEH0213B73_H_) || defined(_GxGDEH0213B72_H_) || defined(_GxGDE0213B1_H_) || defined(_GxDEPG0266BN_H_)
     const GFXfont *font1 = &prazo_Regular_212pt7b;
     const GFXfont *font2 = &prazo_Regular_218pt7b;
@@ -418,113 +393,39 @@ void GxepdPage2()
     display.setTextColor(GxEPD_BLACK);
     display.setFont(font1);
     display.setCursor(5, offset_y1);
-		sprintf(str, "CH %04d", hybridStatus.channel);
-		display.print(str);
-
+    display.print(GxEPD_ProductID"E-Paper");
     display.setCursor(5, offset_y2);
-		sprintf(str, "%3.4f\n      MHz", hybridStatus.frequency);
-		display.print(str);
-    display.update();
+    display.print(display.width());
+    display.print("x");
+    display.print(display.height());
 
-}
-
-void MainScreen()
-{
-	char str[20];
-
-    display.setRotation(1);
-    display.fillScreen(GxEPD_WHITE);
-
-    uint16_t  offset_y1, offset_y2;
-
-    const GFXfont *font1 = &FreeMonoBold12pt7b;
-    offset_y1 = 25;
-    offset_y2 = 50;
 
     display.setTextColor(GxEPD_BLACK);
     display.setFont(font1);
-    display.setCursor(5, offset_y1);
-		sprintf(str, "CH %04d", hybridStatus.channel);
-		display.print(str);
+    str = GxEPD_BitmapExamplesQ;
+    str = str.substring(2, str.lastIndexOf("/"));
+    display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
+    display.setCursor(5, offset_y3);
+    display.println(str);
 
-    display.setCursor(5, offset_y2);
-		sprintf(str, "%3.4f\n      MHz", hybridStatus.frequency);
-		display.print(str);
+    str = "LilyGo";
+    box_x = 0;
+    box_w = display.width();
+    box_y = display.height() - display.height() / 3;
+    box_h = box_y;
+    display.fillRect(box_x, box_y, box_w, box_h, GxEPD_BLACK);
+    display.setTextColor(
+#ifdef _HAS_COLOR_
+        GxEPD_RED
+#else
+        GxEPD_WHITE
+#endif
+    );
+    display.setFont(font2);
+    display.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
+    display.setCursor((box_w / 2) - (w / 2 ), box_y  + offset_y4);
+    display.print(str);
     display.update();
-
-}
-
-void SelButton()
-{
-	char str[20];
-
-	Serial.println("Center button pressed");
-	display.setRotation(1);
-
-	uint16_t  offset_y1, offset_y2;
-
-	const GFXfont *font1 = &FreeMonoBold12pt7b;
-	offset_y1 = 25;
-	offset_y2 = 50;
-
-	display.setTextColor(GxEPD_WHITE);
-	display.setFont(font1);
-	display.setCursor(5, offset_y1);
-//	sprintf(str, "   0", hybridStatus.channel);
-	display.print("   0");
-  display.update();
-}
-
-void UpButton()
-{
-	char str[20];
-
-    Serial.println("Up button pressed");
-    display.setRotation(1);
-    display.fillScreen(GxEPD_WHITE);
-
-    uint16_t  offset_y1, offset_y2;
-
-    const GFXfont *font1 = &FreeMonoBold12pt7b;
-    offset_y1 = 25;
-    offset_y2 = 50;
-
-    display.setTextColor(GxEPD_BLACK);
-    display.setFont(font1);
-    display.setCursor(5, offset_y1);
-		sprintf(str, "CH %04d", hybridStatus.channel);
-		display.print(str);
-
-    display.setCursor(5, offset_y2);
-		sprintf(str, "%3.4f\n      MHz", hybridStatus.frequency);
-		display.print(str);
-    display.update();
-
-}
-
-void DownButton()
-{
-	char str[20];
-
-    Serial.println("Down button pressed");
-    display.setRotation(1);
-    display.fillScreen(GxEPD_WHITE);
-
-    uint16_t  offset_y1, offset_y2;
-
-    const GFXfont *font1 = &FreeMonoBold12pt7b;
-    offset_y1 = 25;
-    offset_y2 = 50;
-
-    display.setTextColor(GxEPD_BLACK);
-    display.setFont(font1);
-    display.setCursor(5, offset_y1);
-		sprintf(str, "CH %04d", hybridStatus.channel);
-		display.print(str);
-
-    display.setCursor(5, offset_y2);
-		sprintf(str, "%3.4f\n      MHz", hybridStatus.frequency);
-		display.print(str);
-    display.update();
-
+    display.setFont();
+    Serial.println("GxepdPage2 done");
 }
